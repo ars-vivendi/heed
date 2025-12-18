@@ -8,6 +8,7 @@ use aead::{AeadMutInPlace, Key, KeyInit, Nonce, Tag};
 
 use super::{Env, EnvClosingEvent, EnvInfo, FlagSetMode};
 use crate::databases::{EncryptedDatabase, EncryptedDatabaseOpenOptions};
+use crate::envs::EnvStat;
 use crate::mdb::ffi::{self};
 use crate::{CompactionOption, EnvFlags, Result, RoTxn, RwTxn, Unspecified, WithTls};
 #[allow(unused)] // fro cargo auto doc links
@@ -91,6 +92,11 @@ impl<T> EncryptedEnv<T> {
     /// Returns some basic informations about this environment.
     pub fn info(&self) -> EnvInfo {
         self.inner.info()
+    }
+
+    /// Returns some statistics about this environment.
+    pub fn stat(&self) -> EnvStat {
+        self.inner.stat()
     }
 
     /// Returns the size used by all the databases in the environment without the free pages.
