@@ -16,6 +16,7 @@ use super::{
     EnvInfo, FlagSetMode, IntegerComparator, OPENED_ENV,
 };
 use crate::cursor::{MoveOperation, RoCursor};
+use crate::envs::EnvStat;
 use crate::mdb::ffi::{self, MDB_env};
 use crate::mdb::lmdb_error::mdb_result;
 use crate::mdb::lmdb_flags::AllDatabaseFlags;
@@ -136,15 +137,47 @@ impl<T> Env<T> {
     pub fn info(&self) -> EnvInfo {
         let mut raw_info = mem::MaybeUninit::uninit();
         unsafe { ffi::mdb_env_info(self.inner.env_ptr.as_ptr(), raw_info.as_mut_ptr()) };
-        let raw_info = unsafe { raw_info.assume_init() };
+        let ffi::MDB_envinfo {
+            me_mapaddr,
+            me_mapsize,
+            me_last_pgno,
+            me_last_txnid,
+            me_maxreaders,
+            me_numreaders,
+        } = unsafe { raw_info.assume_init() };
 
         EnvInfo {
-            map_addr: raw_info.me_mapaddr,
-            map_size: raw_info.me_mapsize,
-            last_page_number: raw_info.me_last_pgno,
-            last_txn_id: raw_info.me_last_txnid,
-            maximum_number_of_readers: raw_info.me_maxreaders,
-            number_of_readers: raw_info.me_numreaders,
+            map_addr: me_mapaddr,
+            map_size: me_mapsize,
+            last_page_number: me_last_pgno,
+            last_txn_id: me_last_txnid,
+            maximum_number_of_readers: me_maxreaders,
+            number_of_readers: me_numreaders,
+        }
+    }
+
+    /// Returns some statistics about this environment.
+    pub fn stat(&self) -> EnvStat {
+        let mut raw_stat = mem::MaybeUninit::uninit();
+        unsafe { ffi::mdb_env_stat(self.inner.env_ptr.as_ptr(), raw_stat.as_mut_ptr()) };
+        // SAFETY: `mdb_env_stat` can only ever return EINVAL, and only if `env` or `stat` are null,
+        // which cannot be the case here as `raw_stat` is on the stack, and `env` is a `NonNull`.
+        let ffi::MDB_stat {
+            ms_psize,
+            ms_depth,
+            ms_branch_pages,
+            ms_leaf_pages,
+            ms_overflow_pages,
+            ms_entries,
+        } = unsafe { raw_stat.assume_init() };
+
+        EnvStat {
+            page_size: ms_psize,
+            depth: ms_depth,
+            branch_pages: ms_branch_pages,
+            leaf_pages: ms_leaf_pages,
+            overflow_pages: ms_overflow_pages,
+            entries: ms_entries,
         }
     }
 
