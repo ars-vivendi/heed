@@ -32,28 +32,9 @@ pub unsafe trait ReadTxn {
 /// `MDB_RDONLY`.
 pub unsafe trait WriteTxn: ReadTxn {}
 
-// Implement ReadTxn for all RoTxn variants (AnyTls is the deref target)
-unsafe impl ReadTxn for RoTxn<'_, AnyTls> {
-    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
-        self.inner.txn.unwrap()
-    }
-
-    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
-        self.inner.env.env_mut_ptr()
-    }
-}
-
-unsafe impl ReadTxn for RoTxn<'_, WithTls> {
-    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
-        self.inner.txn.unwrap()
-    }
-
-    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
-        self.inner.env.env_mut_ptr()
-    }
-}
-
-unsafe impl ReadTxn for RoTxn<'_, WithoutTls> {
+// Implement ReadTxn generically for all RoTxn<T> — the T marker (AnyTls,
+// WithTls, WithoutTls) affects only PhantomData, not the inner layout.
+unsafe impl<T> ReadTxn for RoTxn<'_, T> {
     fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
         self.inner.txn.unwrap()
     }
@@ -164,10 +145,6 @@ impl<'e, T> RoTxn<'e, T> {
 
     pub(crate) fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
         self.inner.txn.unwrap()
-    }
-
-    pub(crate) fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
-        self.inner.env.env_mut_ptr()
     }
 
     /// Return the transaction's ID.
@@ -378,10 +355,6 @@ impl<'p> RwTxn<'p> {
                 _tls_marker: PhantomData,
             },
         })
-    }
-
-    pub(crate) fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
-        self.txn.inner.env.env_mut_ptr()
     }
 
     /// Commit all the operations of a transaction into the database.

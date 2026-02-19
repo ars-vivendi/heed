@@ -129,7 +129,7 @@ impl<'e, 'n, T, KC, DC, C, CDUP> EncryptedDatabaseOpenOptions<'e, 'n, T, KC, DC,
     ///
     /// If not done, you might raise `Io(Os { code: 22, kind: InvalidInput, message: "Invalid argument" })`
     /// known as `EINVAL`.
-    pub fn open(&self, rtxn: &RoTxn) -> Result<Option<EncryptedDatabase<KC, DC, C, CDUP>>>
+    pub fn open(&self, rtxn: &impl ReadTxn) -> Result<Option<EncryptedDatabase<KC, DC, C, CDUP>>>
     where
         KC: 'static,
         DC: 'static,
@@ -148,7 +148,7 @@ impl<'e, 'n, T, KC, DC, C, CDUP> EncryptedDatabaseOpenOptions<'e, 'n, T, KC, DC,
     /// LMDB has an important restriction on the unnamed database when named ones are opened.
     /// The names of the named databases are stored as keys in the unnamed one and are immutable,
     /// and these keys can only be read and not written.
-    pub fn create(&self, wtxn: &mut RwTxn) -> Result<EncryptedDatabase<KC, DC, C, CDUP>>
+    pub fn create(&self, wtxn: &mut impl WriteTxn) -> Result<EncryptedDatabase<KC, DC, C, CDUP>>
     where
         KC: 'static,
         DC: 'static,
@@ -327,7 +327,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<DC::DItem>>
     where
@@ -392,7 +392,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_duplicates<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<RoIter<'txn, KC, DC, MoveOnCurrentKeyDuplicates>>>
     where
@@ -447,7 +447,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_lower_than<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -503,7 +503,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_lower_than_or_equal_to<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -559,7 +559,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_greater_than<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -615,7 +615,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_greater_than_or_equal_to<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -661,7 +661,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn first<'txn>(&self, txn: &'txn mut RoTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
+    pub fn first<'txn>(&self, txn: &'txn mut impl ReadTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
         KC: BytesDecode<'txn>,
         DC: BytesDecode<'txn>,
@@ -705,7 +705,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn last<'txn>(&self, txn: &'txn mut RoTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
+    pub fn last<'txn>(&self, txn: &'txn mut impl ReadTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
         KC: BytesDecode<'txn>,
         DC: BytesDecode<'txn>,
@@ -752,7 +752,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn len(&self, txn: &RoTxn) -> Result<u64> {
+    pub fn len(&self, txn: &impl ReadTxn) -> Result<u64> {
         self.inner.len(txn)
     }
 
@@ -795,7 +795,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn is_empty(&self, txn: &RoTxn) -> Result<bool> {
+    pub fn is_empty(&self, txn: &impl ReadTxn) -> Result<bool> {
         self.inner.is_empty(txn)
     }
 
@@ -837,7 +837,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn stat(&self, txn: &RoTxn) -> Result<DatabaseStat> {
+    pub fn stat(&self, txn: &impl ReadTxn) -> Result<DatabaseStat> {
         self.inner.stat(txn)
     }
 
@@ -882,7 +882,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn iter<'txn>(&self, txn: &'txn mut RoTxn) -> Result<RoIter<'txn, KC, DC>> {
+    pub fn iter<'txn>(&self, txn: &'txn mut impl ReadTxn) -> Result<RoIter<'txn, KC, DC>> {
         self.inner.iter(txn)
     }
 
@@ -927,7 +927,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn rev_iter<'txn>(&self, txn: &'txn mut RoTxn) -> Result<RoRevIter<'txn, KC, DC>> {
+    pub fn rev_iter<'txn>(&self, txn: &'txn mut impl ReadTxn) -> Result<RoRevIter<'txn, KC, DC>> {
         self.inner.rev_iter(txn)
     }
 
@@ -1016,7 +1016,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn range<'a, 'txn, R>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         range: &'a R,
     ) -> Result<RoRange<'txn, KC, DC, C>>
     where
@@ -1073,7 +1073,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn rev_range<'a, 'txn, R>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         range: &'a R,
     ) -> Result<RoRevRange<'txn, KC, DC, C>>
     where
@@ -1131,7 +1131,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn prefix_iter<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         prefix: &'a KC::EItem,
     ) -> Result<RoPrefix<'txn, KC, DC, C>>
     where
@@ -1189,7 +1189,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn rev_prefix_iter<'a, 'txn>(
         &self,
-        txn: &'txn mut RoTxn,
+        txn: &'txn mut impl ReadTxn,
         prefix: &'a KC::EItem,
     ) -> Result<RoRevPrefix<'txn, KC, DC, C>>
     where
@@ -1234,7 +1234,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn put<'a>(&self, txn: &mut RwTxn, key: &'a KC::EItem, data: &'a DC::EItem) -> Result<()>
+    pub fn put<'a>(&self, txn: &mut impl WriteTxn, key: &'a KC::EItem, data: &'a DC::EItem) -> Result<()>
     where
         KC: BytesEncode<'a>,
         DC: BytesEncode<'a>,
@@ -1280,7 +1280,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn put_reserved<'a, F>(
         &self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data_size: usize,
         write_func: F,
@@ -1353,7 +1353,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn put_with_flags<'a>(
         &self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         flags: PutFlags,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
@@ -1400,7 +1400,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put<'a, 'txn, T>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
     ) -> Result<Option<DC::DItem>>
@@ -1447,7 +1447,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put_with_flags<'a, 'txn, T>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         flags: PutFlags,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
@@ -1509,7 +1509,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put_reserved<'a, 'txn, F>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data_size: usize,
         write_func: F,
@@ -1573,7 +1573,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put_reserved_with_flags<'a, 'txn, F>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         flags: PutFlags,
         key: &'a KC::EItem,
         data_size: usize,
@@ -1630,7 +1630,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn delete<'a>(&self, txn: &mut RwTxn, key: &'a KC::EItem) -> Result<bool>
+    pub fn delete<'a>(&self, txn: &mut impl WriteTxn, key: &'a KC::EItem) -> Result<bool>
     where
         KC: BytesEncode<'a>,
     {
@@ -1698,7 +1698,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn delete_one_duplicate<'a>(
         &self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
     ) -> Result<bool>
@@ -1758,7 +1758,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn delete_range<'a, 'txn, R>(&self, txn: &'txn mut RwTxn, range: &'a R) -> Result<usize>
+    pub fn delete_range<'a, 'txn, R>(&self, txn: &'txn mut impl WriteTxn, range: &'a R) -> Result<usize>
     where
         KC: BytesEncode<'a> + BytesDecode<'txn>,
         C: Comparator,
@@ -1808,7 +1808,7 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn clear(&self, txn: &mut RwTxn) -> Result<()> {
+    pub fn clear(&self, txn: &mut impl WriteTxn) -> Result<()> {
         self.inner.clear(txn)
     }
 

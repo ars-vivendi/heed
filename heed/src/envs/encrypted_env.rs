@@ -10,7 +10,9 @@ use super::{Env, EnvClosingEvent, EnvInfo, FlagSetMode};
 use crate::databases::{EncryptedDatabase, EncryptedDatabaseOpenOptions};
 use crate::envs::EnvStat;
 use crate::mdb::ffi::{self};
-use crate::{CompactionOption, EnvFlags, Result, RoTxn, RwTxn, Unspecified, WithTls};
+use crate::{
+    CompactionOption, EnvFlags, ReadTxn, Result, RoTxn, RwTxn, Unspecified, WithTls, WriteTxn,
+};
 #[allow(unused)] // fro cargo auto doc links
 use crate::{Database, EnvOpenOptions};
 
@@ -135,7 +137,7 @@ impl<T> EncryptedEnv<T> {
     /// known as `EINVAL`.
     pub fn open_database<KC, DC>(
         &self,
-        rtxn: &RoTxn,
+        rtxn: &impl ReadTxn,
         name: Option<&str>,
     ) -> Result<Option<EncryptedDatabase<KC, DC>>>
     where
@@ -160,7 +162,7 @@ impl<T> EncryptedEnv<T> {
     /// and these keys can only be read and not written.
     pub fn create_database<KC, DC>(
         &self,
-        wtxn: &mut RwTxn,
+        wtxn: &mut impl WriteTxn,
         name: Option<&str>,
     ) -> Result<EncryptedDatabase<KC, DC>>
     where

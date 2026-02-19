@@ -23,8 +23,8 @@ use crate::mdb::lmdb_flags::AllDatabaseFlags;
 #[allow(unused)] // for cargo auto doc links
 use crate::EnvOpenOptions;
 use crate::{
-    CompactionOption, Database, DatabaseOpenOptions, EnvFlags, Error, Result, RoTxn, RwTxn,
-    Unspecified, WithTls,
+    CompactionOption, Database, DatabaseOpenOptions, EnvFlags, Error, ReadTxn, Result, RoTxn,
+    RwTxn, Unspecified, WithTls, WriteTxn,
 };
 
 /// An environment handle constructed by using [`EnvOpenOptions::open`].
@@ -252,7 +252,7 @@ impl<T> Env<T> {
     /// known as `EINVAL`.
     pub fn open_database<KC, DC>(
         &self,
-        rtxn: &RoTxn,
+        rtxn: &impl ReadTxn,
         name: Option<&str>,
     ) -> Result<Option<Database<KC, DC>>>
     where
@@ -277,7 +277,7 @@ impl<T> Env<T> {
     /// and these keys can only be read and not written.
     pub fn create_database<KC, DC>(
         &self,
-        wtxn: &mut RwTxn,
+        wtxn: &mut impl WriteTxn,
         name: Option<&str>,
     ) -> Result<Database<KC, DC>>
     where

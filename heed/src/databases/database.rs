@@ -144,7 +144,7 @@ impl<'e, 'n, T, KC, DC, C, CDUP> DatabaseOpenOptions<'e, 'n, T, KC, DC, C, CDUP>
     ///
     /// If not done, you might raise `Io(Os { code: 22, kind: InvalidInput, message: "Invalid argument" })`
     /// known as `EINVAL`.
-    pub fn open(&self, rtxn: &RoTxn) -> Result<Option<Database<KC, DC, C, CDUP>>>
+    pub fn open(&self, rtxn: &impl ReadTxn) -> Result<Option<Database<KC, DC, C, CDUP>>>
     where
         KC: 'static,
         DC: 'static,
@@ -169,7 +169,7 @@ impl<'e, 'n, T, KC, DC, C, CDUP> DatabaseOpenOptions<'e, 'n, T, KC, DC, C, CDUP>
     /// LMDB has an important restriction on the unnamed database when named ones are opened.
     /// The names of the named databases are stored as keys in the unnamed one and are immutable,
     /// and these keys can only be read and not written.
-    pub fn create(&self, wtxn: &mut RwTxn) -> Result<Database<KC, DC, C, CDUP>>
+    pub fn create(&self, wtxn: &mut impl WriteTxn) -> Result<Database<KC, DC, C, CDUP>>
     where
         KC: 'static,
         DC: 'static,
@@ -354,7 +354,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn get<'a, 'txn>(&self, txn: &'txn RoTxn, key: &'a KC::EItem) -> Result<Option<DC::DItem>>
+    pub fn get<'a, 'txn>(&self, txn: &'txn impl ReadTxn, key: &'a KC::EItem) -> Result<Option<DC::DItem>>
     where
         KC: BytesEncode<'a>,
         DC: BytesDecode<'txn>,
@@ -441,7 +441,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_duplicates<'a, 'txn>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<RoIter<'txn, KC, DC, MoveOnCurrentKeyDuplicates>>>
     where
@@ -504,7 +504,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_lower_than<'a, 'txn>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -573,7 +573,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_lower_than_or_equal_to<'a, 'txn>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -646,7 +646,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_greater_than<'a, 'txn>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -718,7 +718,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_greater_than_or_equal_to<'a, 'txn>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         key: &'a KC::EItem,
     ) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
@@ -775,7 +775,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn first<'txn>(&self, txn: &'txn RoTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
+    pub fn first<'txn>(&self, txn: &'txn impl ReadTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
         KC: BytesDecode<'txn>,
         DC: BytesDecode<'txn>,
@@ -829,7 +829,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn last<'txn>(&self, txn: &'txn RoTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
+    pub fn last<'txn>(&self, txn: &'txn impl ReadTxn) -> Result<Option<(KC::DItem, DC::DItem)>>
     where
         KC: BytesDecode<'txn>,
         DC: BytesDecode<'txn>,
@@ -886,7 +886,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn len(&self, txn: &RoTxn) -> Result<u64> {
+    pub fn len(&self, txn: &impl ReadTxn) -> Result<u64> {
         self.stat(txn).map(|stat| stat.entries as u64)
     }
 
@@ -929,7 +929,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn is_empty(&self, txn: &RoTxn) -> Result<bool> {
+    pub fn is_empty(&self, txn: &impl ReadTxn) -> Result<bool> {
         self.len(txn).map(|l| l == 0)
     }
 
@@ -971,7 +971,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn stat(&self, txn: &RoTxn) -> Result<DatabaseStat> {
+    pub fn stat(&self, txn: &impl ReadTxn) -> Result<DatabaseStat> {
         assert_eq_env_db_txn!(self, txn);
 
         let mut db_stat = mem::MaybeUninit::uninit();
@@ -1036,7 +1036,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn iter<'txn>(&self, txn: &'txn RoTxn) -> Result<RoIter<'txn, KC, DC>> {
+    pub fn iter<'txn>(&self, txn: &'txn impl ReadTxn) -> Result<RoIter<'txn, KC, DC>> {
         assert_eq_env_db_txn!(self, txn);
         RoCursor::new(txn, self.dbi).map(|cursor| RoIter::new(cursor))
     }
@@ -1082,7 +1082,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn rev_iter<'txn>(&self, txn: &'txn RoTxn) -> Result<RoRevIter<'txn, KC, DC>> {
+    pub fn rev_iter<'txn>(&self, txn: &'txn impl ReadTxn) -> Result<RoRevIter<'txn, KC, DC>> {
         assert_eq_env_db_txn!(self, txn);
 
         RoCursor::new(txn, self.dbi).map(|cursor| RoRevIter::new(cursor))
@@ -1173,7 +1173,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn range<'a, 'txn, R>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         range: &'a R,
     ) -> Result<RoRange<'txn, KC, DC, C>>
     where
@@ -1255,7 +1255,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn rev_range<'a, 'txn, R>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         range: &'a R,
     ) -> Result<RoRevRange<'txn, KC, DC, C>>
     where
@@ -1339,7 +1339,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn prefix_iter<'a, 'txn>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         prefix: &'a KC::EItem,
     ) -> Result<RoPrefix<'txn, KC, DC, C>>
     where
@@ -1401,7 +1401,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn rev_prefix_iter<'a, 'txn>(
         &self,
-        txn: &'txn RoTxn,
+        txn: &'txn impl ReadTxn,
         prefix: &'a KC::EItem,
     ) -> Result<RoRevPrefix<'txn, KC, DC, C>>
     where
@@ -1450,7 +1450,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn put<'a>(&self, txn: &mut RwTxn, key: &'a KC::EItem, data: &'a DC::EItem) -> Result<()>
+    pub fn put<'a>(&self, txn: &mut impl WriteTxn, key: &'a KC::EItem, data: &'a DC::EItem) -> Result<()>
     where
         KC: BytesEncode<'a>,
         DC: BytesEncode<'a>,
@@ -1515,7 +1515,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn put_reserved<'a, F>(
         &self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data_size: usize,
         write_func: F,
@@ -1611,7 +1611,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn put_with_flags<'a>(
         &self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         flags: PutFlags,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
@@ -1677,7 +1677,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put<'a, 'txn>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
     ) -> Result<Option<DC::DItem>>
@@ -1724,7 +1724,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put_with_flags<'a, 'txn>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         flags: PutFlags,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
@@ -1815,7 +1815,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put_reserved<'a, 'txn, F>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data_size: usize,
         write_func: F,
@@ -1879,7 +1879,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn get_or_put_reserved_with_flags<'a, 'txn, F>(
         &'txn self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         flags: PutFlags,
         key: &'a KC::EItem,
         data_size: usize,
@@ -1900,7 +1900,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
 
         let result = unsafe {
             mdb_result(ffi::mdb_put(
-                txn.txn.txn_ptr().as_mut(),
+                txn.txn_ptr().as_mut(),
                 self.dbi,
                 &mut key_val,
                 &mut reserved,
@@ -1972,7 +1972,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn delete<'a>(&self, txn: &mut RwTxn, key: &'a KC::EItem) -> Result<bool>
+    pub fn delete<'a>(&self, txn: &mut impl WriteTxn, key: &'a KC::EItem) -> Result<bool>
     where
         KC: BytesEncode<'a>,
     {
@@ -1983,7 +1983,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
 
         let result = unsafe {
             mdb_result(ffi::mdb_del(
-                txn.txn.txn_ptr().as_mut(),
+                txn.txn_ptr().as_mut(),
                 self.dbi,
                 &mut key_val,
                 ptr::null_mut(),
@@ -2058,7 +2058,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// ```
     pub fn delete_one_duplicate<'a>(
         &self,
-        txn: &mut RwTxn,
+        txn: &mut impl WriteTxn,
         key: &'a KC::EItem,
         data: &'a DC::EItem,
     ) -> Result<bool>
@@ -2075,7 +2075,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
 
         let result = unsafe {
             mdb_result(ffi::mdb_del(
-                txn.txn.txn_ptr().as_mut(),
+                txn.txn_ptr().as_mut(),
                 self.dbi,
                 &mut key_val,
                 &mut data_val,
@@ -2138,7 +2138,7 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn delete_range<'a, 'txn, R>(&self, txn: &'txn mut RwTxn, range: &'a R) -> Result<usize>
+    pub fn delete_range<'a, 'txn, R>(&self, txn: &'txn mut impl WriteTxn, range: &'a R) -> Result<usize>
     where
         KC: BytesEncode<'a>,
         C: Comparator,
@@ -2271,11 +2271,11 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// wtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub fn clear(&self, txn: &mut RwTxn) -> Result<()> {
+    pub fn clear(&self, txn: &mut impl WriteTxn) -> Result<()> {
         assert_eq_env_db_txn!(self, txn);
 
         unsafe {
-            mdb_result(ffi::mdb_drop(txn.txn.txn_ptr().as_mut(), self.dbi, 0)).map_err(Into::into)
+            mdb_result(ffi::mdb_drop(txn.txn_ptr().as_mut(), self.dbi, 0)).map_err(Into::into)
         }
     }
 
@@ -2316,10 +2316,10 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     "    // mdb-master3 uses null-terminated C strings as DB names\n",
     "    let names_db: Database<Bytes, DecodeIgnore> =",
     ))]
-    ///         env.open_database(&rotxn, None)?
+    ///         env.open_database(rotxn, None)?
     ///            .expect("the unnamed database always exists");
     ///     let mut names = Vec::new();
-    ///     for item in names_db.iter(&rotxn)? {
+    ///     for item in names_db.iter(rotxn)? {
     ///         let (name, ()) = item?;
     #[cfg_attr(master3, doc = concat!(
     "        let name = std::ffi::CStr::from_bytes_with_nul(name)?.to_str()?;",
@@ -2347,11 +2347,11 @@ impl<KC, DC, C, CDUP> Database<KC, DC, C, CDUP> {
     /// rwtxn.commit()?;
     /// # Ok(()) }
     /// ```
-    pub unsafe fn remove(self, rwtxn: &mut RwTxn) -> Result<()> {
+    pub unsafe fn remove(self, rwtxn: &mut impl WriteTxn) -> Result<()> {
         assert_eq_env_db_txn!(self, rwtxn);
 
         unsafe {
-            mdb_result(ffi::mdb_drop(rwtxn.txn.txn_ptr().as_mut(), self.dbi, 1)).map_err(Into::into)
+            mdb_result(ffi::mdb_drop(rwtxn.txn_ptr().as_mut(), self.dbi, 1)).map_err(Into::into)
         }
     }
 
