@@ -259,3 +259,19 @@ because `WRITEMAP` is already an unsafe opt-in.
 2. Add compile-fail tests (split prevents commit, etc.)
 3. Update README
 4. Commit
+
+---
+
+## Implementation Status — COMPLETE
+
+All phases have been implemented and committed on branch `feat/rwtxn-split`:
+
+| Commit | Phase | Summary |
+|--------|-------|---------|
+| `96c3540` | 0 | Remove Rw iterator types and `_mut` methods |
+| `ed4a6e7` | 1 | Add `ReadTxn` and `WriteTxn` traits |
+| `c900734` | 2 | Migrate all method signatures to trait-based |
+| `258df6d` | 3 | Add `ReadHalf`, `WriteHalf`, `RwTxn::split()` |
+| `6125c8c` | 4 | Example, doc tests, compile-fail tests |
+
+**Test results:** 71 tests pass, 0 warnings.
