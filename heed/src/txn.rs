@@ -9,6 +9,72 @@ use crate::mdb::error::mdb_result;
 use crate::mdb::ffi;
 use crate::Result;
 
+/// A trait for transactions that support read operations.
+///
+/// # Safety
+///
+/// Implementors must return a valid, live `MDB_txn` pointer for a read (or
+/// read-write) LMDB transaction that is not concurrently accessed from
+/// another thread.
+pub unsafe trait ReadTxn {
+    /// Returns the raw LMDB transaction pointer.
+    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn>;
+
+    /// Returns the raw LMDB environment pointer.
+    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env>;
+}
+
+/// A marker trait for transactions that support write operations.
+///
+/// # Safety
+///
+/// Implementors must ensure the underlying `MDB_txn` was opened without
+/// `MDB_RDONLY`.
+pub unsafe trait WriteTxn: ReadTxn {}
+
+// Implement ReadTxn for all RoTxn variants (AnyTls is the deref target)
+unsafe impl ReadTxn for RoTxn<'_, AnyTls> {
+    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
+        self.inner.txn.unwrap()
+    }
+
+    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
+        self.inner.env.env_mut_ptr()
+    }
+}
+
+unsafe impl ReadTxn for RoTxn<'_, WithTls> {
+    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
+        self.inner.txn.unwrap()
+    }
+
+    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
+        self.inner.env.env_mut_ptr()
+    }
+}
+
+unsafe impl ReadTxn for RoTxn<'_, WithoutTls> {
+    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
+        self.inner.txn.unwrap()
+    }
+
+    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
+        self.inner.env.env_mut_ptr()
+    }
+}
+
+unsafe impl ReadTxn for RwTxn<'_> {
+    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
+        self.txn.inner.txn.unwrap()
+    }
+
+    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
+        self.txn.inner.env.env_mut_ptr()
+    }
+}
+
+unsafe impl WriteTxn for RwTxn<'_> {}
+
 /// A read-only transaction.
 ///
 /// ## LMDB Limitations
