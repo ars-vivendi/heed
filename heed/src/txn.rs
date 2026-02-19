@@ -357,6 +357,33 @@ impl<'p> RwTxn<'p> {
         })
     }
 
+    /// Splits this read-write transaction into a [`ReadHalf`] and a [`WriteHalf`].
+    ///
+    /// This allows reading from one database while writing to another within the
+    /// same transaction, something that is not possible with `&mut RwTxn` alone
+    /// since it requires an exclusive borrow.
+    ///
+    /// Both halves share the same underlying LMDB transaction. The caller cannot
+    /// call [`commit`](RwTxn::commit) or [`abort`](RwTxn::abort) until both
+    /// halves are dropped.
+    ///
+    /// # Safety Note
+    ///
+    /// This is safe in LMDB's default (non-`WRITEMAP`) mode because writes
+    /// go to heap-allocated copy-on-write pages, leaving existing read cursors
+    /// valid.  In `WRITEMAP` mode, writes are done in-place through an
+    /// mmap'd region, which *can* invalidate pointers held by read cursors on
+    /// the **same** database.  Since `WRITEMAP` is behind an `unsafe` API,
+    /// that responsibility falls on the caller.
+    pub fn split(&mut self) -> (ReadHalf<'_>, WriteHalf<'_>) {
+        let txn = self.txn.inner.txn.unwrap();
+        let env = self.txn.inner.env.env_mut_ptr();
+        (
+            ReadHalf { txn, env, _marker: PhantomData },
+            WriteHalf { txn, env, _marker: PhantomData },
+        )
+    }
+
     /// Commit all the operations of a transaction into the database.
     /// The transaction is reset.
     pub fn commit(mut self) -> Result<()> {
@@ -392,6 +419,57 @@ impl std::ops::DerefMut for RwTxn<'_> {
         &mut self.txn
     }
 }
+
+/// The read half of a split [`RwTxn`].
+///
+/// Created by [`RwTxn::split`]. Borrows from the parent transaction,
+/// preventing [`RwTxn::commit`] or [`RwTxn::abort`] while this value is
+/// alive.  Implements [`ReadTxn`], so it can be passed to any database
+/// method that needs a read transaction reference.
+pub struct ReadHalf<'a> {
+    txn: NonNull<ffi::MDB_txn>,
+    env: NonNull<ffi::MDB_env>,
+    _marker: PhantomData<&'a ()>,
+}
+
+/// The write half of a split [`RwTxn`].
+///
+/// Created by [`RwTxn::split`]. Borrows from the parent transaction,
+/// preventing [`RwTxn::commit`] or [`RwTxn::abort`] while this value is
+/// alive.  Implements both [`ReadTxn`] and [`WriteTxn`], so it can be
+/// used for both reads and writes.
+pub struct WriteHalf<'a> {
+    txn: NonNull<ffi::MDB_txn>,
+    env: NonNull<ffi::MDB_env>,
+    _marker: PhantomData<&'a mut ()>,
+}
+
+// SAFETY: ReadHalf holds a valid MDB_txn pointer obtained from a live RwTxn.
+// The lifetime `'a` ties it to the &mut RwTxn borrow, guaranteeing the
+// transaction is not committed/aborted while this exists.
+unsafe impl ReadTxn for ReadHalf<'_> {
+    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
+        self.txn
+    }
+
+    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
+        self.env
+    }
+}
+
+// SAFETY: WriteHalf holds the same valid MDB_txn pointer and the underlying
+// transaction was opened for read-write (without MDB_RDONLY).
+unsafe impl ReadTxn for WriteHalf<'_> {
+    fn txn_ptr(&self) -> NonNull<ffi::MDB_txn> {
+        self.txn
+    }
+
+    fn env_mut_ptr(&self) -> NonNull<ffi::MDB_env> {
+        self.env
+    }
+}
+
+unsafe impl WriteTxn for WriteHalf<'_> {}
 
 #[cfg(test)]
 mod tests {
