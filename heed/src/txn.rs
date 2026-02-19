@@ -375,6 +375,67 @@ impl<'p> RwTxn<'p> {
     /// mmap'd region, which *can* invalidate pointers held by read cursors on
     /// the **same** database.  Since `WRITEMAP` is behind an `unsafe` API,
     /// that responsibility falls on the caller.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use std::error::Error;
+    /// # use heed::EnvOpenOptions;
+    /// use heed::types::*;
+    /// use heed::Database;
+    ///
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let dir = tempfile::tempdir()?;
+    /// # let env = unsafe {
+    /// #     EnvOpenOptions::new()
+    /// #         .map_size(10 * 1024 * 1024)
+    /// #         .max_dbs(3000)
+    /// #         .open(dir.path())?
+    /// # };
+    /// let mut wtxn = env.write_txn()?;
+    /// let src: Database<Str, Str> = env.create_database(&mut wtxn, Some("src"))?;
+    /// let dst: Database<Str, Str> = env.create_database(&mut wtxn, Some("dst"))?;
+    /// src.put(&mut wtxn, "hello", "world")?;
+    ///
+    /// // Split the transaction to read `src` while writing to `dst`.
+    /// {
+    ///     let (read, mut write) = wtxn.split();
+    ///     let val = src.get(&read, "hello")?.unwrap();
+    ///     dst.put(&mut write, "hello", val)?;
+    /// }
+    ///
+    /// wtxn.commit()?;
+    ///
+    /// let rtxn = env.read_txn()?;
+    /// assert_eq!(dst.get(&rtxn, "hello")?, Some("world"));
+    /// # Ok(()) }
+    /// ```
+    ///
+    /// You cannot commit while the halves are alive:
+    ///
+    /// ```compile_fail
+    /// # use std::error::Error;
+    /// # use heed::EnvOpenOptions;
+    /// use heed::types::*;
+    /// use heed::Database;
+    ///
+    /// # fn main() -> Result<(), Box<dyn Error>> {
+    /// # let dir = tempfile::tempdir()?;
+    /// # let env = unsafe {
+    /// #     EnvOpenOptions::new()
+    /// #         .map_size(10 * 1024 * 1024)
+    /// #         .max_dbs(3000)
+    /// #         .open(dir.path())?
+    /// # };
+    /// let mut wtxn = env.write_txn()?;
+    /// let db: Database<Str, Str> = env.create_database(&mut wtxn, Some("db"))?;
+    /// let (read, mut write) = wtxn.split();
+    /// db.put(&mut write, "k", "v")?;
+    /// wtxn.commit()?; // ERROR: cannot move `wtxn` while borrowed by split halves
+    /// drop(read);
+    /// drop(write);
+    /// # Ok(()) }
+    /// ```
     pub fn split(&mut self) -> (ReadHalf<'_>, WriteHalf<'_>) {
         let txn = self.txn.inner.txn.unwrap();
         let env = self.txn.inner.env.env_mut_ptr();
@@ -426,6 +487,14 @@ impl std::ops::DerefMut for RwTxn<'_> {
 /// preventing [`RwTxn::commit`] or [`RwTxn::abort`] while this value is
 /// alive.  Implements [`ReadTxn`], so it can be passed to any database
 /// method that needs a read transaction reference.
+///
+/// `ReadHalf` is `!Send` because LMDB transactions must stay on the
+/// thread that created them.
+///
+/// ```compile_fail
+/// fn assert_send<T: Send>() {}
+/// assert_send::<heed::ReadHalf<'static>>();
+/// ```
 pub struct ReadHalf<'a> {
     txn: NonNull<ffi::MDB_txn>,
     env: NonNull<ffi::MDB_env>,
@@ -438,6 +507,14 @@ pub struct ReadHalf<'a> {
 /// preventing [`RwTxn::commit`] or [`RwTxn::abort`] while this value is
 /// alive.  Implements both [`ReadTxn`] and [`WriteTxn`], so it can be
 /// used for both reads and writes.
+///
+/// `WriteHalf` is `!Send` because LMDB transactions must stay on the
+/// thread that created them.
+///
+/// ```compile_fail
+/// fn assert_send<T: Send>() {}
+/// assert_send::<heed::WriteHalf<'static>>();
+/// ```
 pub struct WriteHalf<'a> {
     txn: NonNull<ffi::MDB_txn>,
     env: NonNull<ffi::MDB_env>,
