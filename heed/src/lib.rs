@@ -96,8 +96,7 @@ pub use self::envs::{
     EnvOpenOptions, FlagSetMode, IntegerComparator,
 };
 pub use self::iterator::{
-    RoIter, RoPrefix, RoRange, RoRevIter, RoRevPrefix, RoRevRange, RwIter, RwPrefix, RwRange,
-    RwRevIter, RwRevPrefix, RwRevRange,
+    RoIter, RoPrefix, RoRange, RoRevIter, RoRevPrefix, RoRevRange,
 };
 pub use self::mdb::error::Error as MdbError;
 use self::mdb::ffi::{from_val, into_val};

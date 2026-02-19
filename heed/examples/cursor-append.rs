@@ -23,14 +23,10 @@ fn main() -> Result<(), Box<dyn Error>> {
     first.put(&mut wtxn, "I am here", "to test things")?;
     first.put(&mut wtxn, "I am here too", "for the same purpose")?;
 
-    // We try to append ordered entries in the second database.
-    let mut iter = second.iter_mut(&mut wtxn)?;
-
-    unsafe { iter.put_current_with_options::<Str>(PutFlags::APPEND, "aaaa", "lol")? };
-    unsafe { iter.put_current_with_options::<Str>(PutFlags::APPEND, "abcd", "lol")? };
-    unsafe { iter.put_current_with_options::<Str>(PutFlags::APPEND, "bcde", "lol")? };
-
-    drop(iter);
+    // We append ordered entries in the second database using the APPEND flag.
+    second.put_with_flags(&mut wtxn, PutFlags::APPEND, "aaaa", "lol")?;
+    second.put_with_flags(&mut wtxn, PutFlags::APPEND, "abcd", "lol")?;
+    second.put_with_flags(&mut wtxn, PutFlags::APPEND, "bcde", "lol")?;
 
     wtxn.commit()?;
 

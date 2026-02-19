@@ -886,60 +886,6 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
         self.inner.iter(txn)
     }
 
-    /// Return a mutable lexicographically ordered iterator of all key-value pairs in this database.
-    ///
-    /// ```
-    /// # use std::fs;
-    /// # use std::path::Path;
-    /// # use heed::EnvOpenOptions;
-    /// use heed::Database;
-    /// use heed::types::*;
-    /// use heed::byteorder::BigEndian;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let dir = tempfile::tempdir()?;
-    /// # let env = unsafe { EnvOpenOptions::new()
-    /// #     .map_size(10 * 1024 * 1024) // 10MB
-    /// #     .max_dbs(3000)
-    /// #     .open(dir.path())?
-    /// # };
-    /// type BEI32 = I32<BigEndian>;
-    ///
-    /// let mut wtxn = env.write_txn()?;
-    /// let db: Database<BEI32, Str> = env.create_database(&mut wtxn, Some("iter-i32"))?;
-    ///
-    /// # db.clear(&mut wtxn)?;
-    /// db.put(&mut wtxn, &42, "i-am-forty-two")?;
-    /// db.put(&mut wtxn, &27, "i-am-twenty-seven")?;
-    /// db.put(&mut wtxn, &13, "i-am-thirteen")?;
-    ///
-    /// let mut iter = db.iter_mut(&mut wtxn)?;
-    /// assert_eq!(iter.next().transpose()?, Some((13, "i-am-thirteen")));
-    /// let ret = unsafe { iter.del_current()? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, Some((27, "i-am-twenty-seven")));
-    /// assert_eq!(iter.next().transpose()?, Some((42, "i-am-forty-two")));
-    /// let ret = unsafe { iter.put_current(&42, "i-am-the-new-forty-two")? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, None);
-    ///
-    /// drop(iter);
-    ///
-    /// let ret = db.get(&wtxn, &13)?;
-    /// assert_eq!(ret, None);
-    ///
-    /// let ret = db.get(&wtxn, &42)?;
-    /// assert_eq!(ret, Some("i-am-the-new-forty-two"));
-    ///
-    /// wtxn.commit()?;
-    /// # Ok(()) }
-    /// ```
-    pub fn iter_mut<'txn, T>(&self, txn: &'txn mut RwTxn) -> Result<RwIter<'txn, KC, DC>> {
-        self.inner.iter_mut(txn)
-    }
-
     /// Return a reversed lexicographically ordered iterator of all key-value pairs in this database.
     ///
     /// You can make this iterator `Send`able between threads by opening
@@ -983,61 +929,6 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
     /// ```
     pub fn rev_iter<'txn>(&self, txn: &'txn mut RoTxn) -> Result<RoRevIter<'txn, KC, DC>> {
         self.inner.rev_iter(txn)
-    }
-
-    /// Return a mutable reversed lexicographically ordered iterator of all key-value\
-    /// pairs in this database.
-    ///
-    /// ```
-    /// # use std::fs;
-    /// # use std::path::Path;
-    /// # use heed::EnvOpenOptions;
-    /// use heed::Database;
-    /// use heed::types::*;
-    /// use heed::byteorder::BigEndian;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let dir = tempfile::tempdir()?;
-    /// # let env = unsafe { EnvOpenOptions::new()
-    /// #     .map_size(10 * 1024 * 1024) // 10MB
-    /// #     .max_dbs(3000)
-    /// #     .open(dir.path())?
-    /// # };
-    /// type BEI32 = I32<BigEndian>;
-    ///
-    /// let mut wtxn = env.write_txn()?;
-    /// let db: Database<BEI32, Str> = env.create_database(&mut wtxn, Some("iter-i32"))?;
-    ///
-    /// # db.clear(&mut wtxn)?;
-    /// db.put(&mut wtxn, &42, "i-am-forty-two")?;
-    /// db.put(&mut wtxn, &27, "i-am-twenty-seven")?;
-    /// db.put(&mut wtxn, &13, "i-am-thirteen")?;
-    ///
-    /// let mut iter = db.rev_iter_mut(&mut wtxn)?;
-    /// assert_eq!(iter.next().transpose()?, Some((42, "i-am-forty-two")));
-    /// let ret = unsafe { iter.del_current()? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, Some((27, "i-am-twenty-seven")));
-    /// assert_eq!(iter.next().transpose()?, Some((13, "i-am-thirteen")));
-    /// let ret = unsafe { iter.put_current(&13, "i-am-the-new-thirteen")? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, None);
-    ///
-    /// drop(iter);
-    ///
-    /// let ret = db.get(&wtxn, &42)?;
-    /// assert_eq!(ret, None);
-    ///
-    /// let ret = db.get(&wtxn, &13)?;
-    /// assert_eq!(ret, Some("i-am-the-new-thirteen"));
-    ///
-    /// wtxn.commit()?;
-    /// # Ok(()) }
-    /// ```
-    pub fn rev_iter_mut<'txn, T>(&self, txn: &'txn mut RwTxn) -> Result<RwRevIter<'txn, KC, DC>> {
-        self.inner.rev_iter_mut(txn)
     }
 
     /// Return an ordered iterator of a range of key-value pairs in this database.
@@ -1135,72 +1026,6 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
         self.inner.range(txn, range)
     }
 
-    /// Return a mutable ordered iterator of a range of
-    /// key-value pairs in this database.
-    ///
-    /// Comparisons are made by using the comparator `C`.
-    ///
-    /// ```
-    /// # use std::fs;
-    /// # use std::path::Path;
-    /// # use heed::EnvOpenOptions;
-    /// use heed::Database;
-    /// use heed::types::*;
-    /// use heed::byteorder::BigEndian;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let dir = tempfile::tempdir()?;
-    /// # let env = unsafe { EnvOpenOptions::new()
-    /// #     .map_size(10 * 1024 * 1024) // 10MB
-    /// #     .max_dbs(3000)
-    /// #     .open(dir.path())?
-    /// # };
-    /// type BEI32 = I32<BigEndian>;
-    ///
-    /// let mut wtxn = env.write_txn()?;
-    /// let db: Database<BEI32, Str> = env.create_database(&mut wtxn, Some("iter-i32"))?;
-    ///
-    /// # db.clear(&mut wtxn)?;
-    /// db.put(&mut wtxn, &42, "i-am-forty-two")?;
-    /// db.put(&mut wtxn, &27, "i-am-twenty-seven")?;
-    /// db.put(&mut wtxn, &13, "i-am-thirteen")?;
-    /// db.put(&mut wtxn, &521, "i-am-five-hundred-and-twenty-one")?;
-    ///
-    /// let range = 27..=42;
-    /// let mut range = db.range_mut(&mut wtxn, &range)?;
-    /// assert_eq!(range.next().transpose()?, Some((27, "i-am-twenty-seven")));
-    /// let ret = unsafe { range.del_current()? };
-    /// assert!(ret);
-    /// assert_eq!(range.next().transpose()?, Some((42, "i-am-forty-two")));
-    /// let ret = unsafe { range.put_current(&42, "i-am-the-new-forty-two")? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(range.next().transpose()?, None);
-    /// drop(range);
-    ///
-    ///
-    /// let mut iter = db.iter(&wtxn)?;
-    /// assert_eq!(iter.next().transpose()?, Some((13, "i-am-thirteen")));
-    /// assert_eq!(iter.next().transpose()?, Some((42, "i-am-the-new-forty-two")));
-    /// assert_eq!(iter.next().transpose()?, Some((521, "i-am-five-hundred-and-twenty-one")));
-    /// assert_eq!(iter.next().transpose()?, None);
-    ///
-    /// drop(iter);
-    /// wtxn.commit()?;
-    /// # Ok(()) }
-    /// ```
-    pub fn range_mut<'a, 'txn, R>(
-        &self,
-        txn: &'txn mut RwTxn,
-        range: &'a R,
-    ) -> Result<RwRange<'txn, KC, DC, C>>
-    where
-        KC: BytesEncode<'a>,
-        R: RangeBounds<KC::EItem>,
-    {
-        self.inner.range_mut(txn, range)
-    }
-
     /// Return a reverse ordered iterator of a range of key-value
     /// pairs in this database.
     ///
@@ -1256,72 +1081,6 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
         R: RangeBounds<KC::EItem>,
     {
         self.inner.rev_range(txn, range)
-    }
-
-    /// Return a mutable reverse ordered iterator of a range of
-    /// key-value pairs in this database.
-    ///
-    /// Comparisons are made by using the comparator `C`.
-    ///
-    /// ```
-    /// # use std::fs;
-    /// # use std::path::Path;
-    /// # use heed::EnvOpenOptions;
-    /// use heed::Database;
-    /// use heed::types::*;
-    /// use heed::byteorder::BigEndian;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let dir = tempfile::tempdir()?;
-    /// # let env = unsafe { EnvOpenOptions::new()
-    /// #     .map_size(10 * 1024 * 1024) // 10MB
-    /// #     .max_dbs(3000)
-    /// #     .open(dir.path())?
-    /// # };
-    /// type BEI32 = I32<BigEndian>;
-    ///
-    /// let mut wtxn = env.write_txn()?;
-    /// let db: Database<BEI32, Str> = env.create_database(&mut wtxn, Some("iter-i32"))?;
-    ///
-    /// # db.clear(&mut wtxn)?;
-    /// db.put(&mut wtxn, &42, "i-am-forty-two")?;
-    /// db.put(&mut wtxn, &27, "i-am-twenty-seven")?;
-    /// db.put(&mut wtxn, &13, "i-am-thirteen")?;
-    /// db.put(&mut wtxn, &521, "i-am-five-hundred-and-twenty-one")?;
-    ///
-    /// let range = 27..=42;
-    /// let mut range = db.rev_range_mut(&mut wtxn, &range)?;
-    /// assert_eq!(range.next().transpose()?, Some((42, "i-am-forty-two")));
-    /// let ret = unsafe { range.del_current()? };
-    /// assert!(ret);
-    /// assert_eq!(range.next().transpose()?, Some((27, "i-am-twenty-seven")));
-    /// let ret = unsafe { range.put_current(&27, "i-am-the-new-twenty-seven")? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(range.next().transpose()?, None);
-    /// drop(range);
-    ///
-    ///
-    /// let mut iter = db.iter(&wtxn)?;
-    /// assert_eq!(iter.next().transpose()?, Some((13, "i-am-thirteen")));
-    /// assert_eq!(iter.next().transpose()?, Some((27, "i-am-the-new-twenty-seven")));
-    /// assert_eq!(iter.next().transpose()?, Some((521, "i-am-five-hundred-and-twenty-one")));
-    /// assert_eq!(iter.next().transpose()?, None);
-    ///
-    /// drop(iter);
-    /// wtxn.commit()?;
-    /// # Ok(()) }
-    /// ```
-    pub fn rev_range_mut<'a, 'txn, R>(
-        &self,
-        txn: &'txn mut RwTxn,
-        range: &'a R,
-    ) -> Result<RwRevRange<'txn, KC, DC, C>>
-    where
-        KC: BytesEncode<'a>,
-        R: RangeBounds<KC::EItem>,
-    {
-        self.inner.rev_range_mut(txn, range)
     }
 
     /// Return a lexicographically ordered iterator of all key-value pairs
@@ -1382,73 +1141,6 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
         self.inner.prefix_iter(txn, prefix)
     }
 
-    /// Return a mutable lexicographically ordered iterator of all key-value pairs
-    /// in this database that starts with the given prefix.
-    ///
-    /// Comparisons are made by using the bytes representation of the key.
-    ///
-    /// ```
-    /// # use std::fs;
-    /// # use std::path::Path;
-    /// # use heed::EnvOpenOptions;
-    /// use heed::Database;
-    /// use heed::types::*;
-    /// use heed::byteorder::BigEndian;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let dir = tempfile::tempdir()?;
-    /// # let env = unsafe { EnvOpenOptions::new()
-    /// #     .map_size(10 * 1024 * 1024) // 10MB
-    /// #     .max_dbs(3000)
-    /// #     .open(dir.path())?
-    /// # };
-    /// type BEI32 = I32<BigEndian>;
-    ///
-    /// let mut wtxn = env.write_txn()?;
-    /// let db: Database<Str, BEI32> = env.create_database(&mut wtxn, Some("iter-i32"))?;
-    ///
-    /// # db.clear(&mut wtxn)?;
-    /// db.put(&mut wtxn, "i-am-twenty-eight", &28)?;
-    /// db.put(&mut wtxn, "i-am-twenty-seven", &27)?;
-    /// db.put(&mut wtxn, "i-am-twenty-nine",  &29)?;
-    /// db.put(&mut wtxn, "i-am-forty-one",    &41)?;
-    /// db.put(&mut wtxn, "i-am-forty-two",    &42)?;
-    ///
-    /// let mut iter = db.prefix_iter_mut(&mut wtxn, "i-am-twenty")?;
-    /// assert_eq!(iter.next().transpose()?, Some(("i-am-twenty-eight", 28)));
-    /// let ret = unsafe { iter.del_current()? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, Some(("i-am-twenty-nine", 29)));
-    /// assert_eq!(iter.next().transpose()?, Some(("i-am-twenty-seven", 27)));
-    /// let ret = unsafe { iter.put_current("i-am-twenty-seven", &27000)? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, None);
-    ///
-    /// drop(iter);
-    ///
-    /// let ret = db.get(&wtxn, "i-am-twenty-eight")?;
-    /// assert_eq!(ret, None);
-    ///
-    /// let ret = db.get(&wtxn, "i-am-twenty-seven")?;
-    /// assert_eq!(ret, Some(27000));
-    ///
-    /// wtxn.commit()?;
-    /// # Ok(()) }
-    /// ```
-    pub fn prefix_iter_mut<'a, 'txn, T>(
-        &self,
-        txn: &'txn mut RwTxn,
-        prefix: &'a KC::EItem,
-    ) -> Result<RwPrefix<'txn, KC, DC, C>>
-    where
-        KC: BytesEncode<'a>,
-        C: LexicographicComparator,
-    {
-        self.inner.prefix_iter_mut(txn, prefix)
-    }
-
     /// Return a reversed lexicographically ordered iterator of all key-value pairs
     /// in this database that starts with the given prefix.
     ///
@@ -1505,73 +1197,6 @@ impl<KC, DC, C, CDUP> EncryptedDatabase<KC, DC, C, CDUP> {
         C: LexicographicComparator,
     {
         self.inner.rev_prefix_iter(txn, prefix)
-    }
-
-    /// Return a mutable reversed lexicographically ordered iterator of all key-value pairs
-    /// in this database that starts with the given prefix.
-    ///
-    /// Comparisons are made by using the bytes representation of the key.
-    ///
-    /// ```
-    /// # use std::fs;
-    /// # use std::path::Path;
-    /// # use heed::EnvOpenOptions;
-    /// use heed::Database;
-    /// use heed::types::*;
-    /// use heed::byteorder::BigEndian;
-    ///
-    /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// # let dir = tempfile::tempdir()?;
-    /// # let env = unsafe { EnvOpenOptions::new()
-    /// #     .map_size(10 * 1024 * 1024) // 10MB
-    /// #     .max_dbs(3000)
-    /// #     .open(dir.path())?
-    /// # };
-    /// type BEI32 = I32<BigEndian>;
-    ///
-    /// let mut wtxn = env.write_txn()?;
-    /// let db: Database<Str, BEI32> = env.create_database(&mut wtxn, Some("iter-i32"))?;
-    ///
-    /// # db.clear(&mut wtxn)?;
-    /// db.put(&mut wtxn, "i-am-twenty-eight", &28)?;
-    /// db.put(&mut wtxn, "i-am-twenty-seven", &27)?;
-    /// db.put(&mut wtxn, "i-am-twenty-nine",  &29)?;
-    /// db.put(&mut wtxn, "i-am-forty-one",    &41)?;
-    /// db.put(&mut wtxn, "i-am-forty-two",    &42)?;
-    ///
-    /// let mut iter = db.rev_prefix_iter_mut(&mut wtxn, "i-am-twenty")?;
-    /// assert_eq!(iter.next().transpose()?, Some(("i-am-twenty-seven", 27)));
-    /// let ret = unsafe { iter.del_current()? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, Some(("i-am-twenty-nine", 29)));
-    /// assert_eq!(iter.next().transpose()?, Some(("i-am-twenty-eight", 28)));
-    /// let ret = unsafe { iter.put_current("i-am-twenty-eight", &28000)? };
-    /// assert!(ret);
-    ///
-    /// assert_eq!(iter.next().transpose()?, None);
-    ///
-    /// drop(iter);
-    ///
-    /// let ret = db.get(&wtxn, "i-am-twenty-seven")?;
-    /// assert_eq!(ret, None);
-    ///
-    /// let ret = db.get(&wtxn, "i-am-twenty-eight")?;
-    /// assert_eq!(ret, Some(28000));
-    ///
-    /// wtxn.commit()?;
-    /// # Ok(()) }
-    /// ```
-    pub fn rev_prefix_iter_mut<'a, 'txn, T>(
-        &self,
-        txn: &'txn mut RwTxn,
-        prefix: &'a KC::EItem,
-    ) -> Result<RwRevPrefix<'txn, KC, DC, C>>
-    where
-        KC: BytesEncode<'a>,
-        C: LexicographicComparator,
-    {
-        self.inner.rev_prefix_iter_mut(txn, prefix)
     }
 
     /// Insert a key-value pair in this database, replacing any previous value. The entry is

@@ -2,9 +2,9 @@ mod iter;
 mod prefix;
 mod range;
 
-pub use self::iter::{RoIter, RoRevIter, RwIter, RwRevIter};
-pub use self::prefix::{RoPrefix, RoRevPrefix, RwPrefix, RwRevPrefix};
-pub use self::range::{RoRange, RoRevRange, RwRange, RwRevRange};
+pub use self::iter::{RoIter, RoRevIter};
+pub use self::prefix::{RoPrefix, RoRevPrefix};
+pub use self::range::{RoRange, RoRevRange};
 
 /// This is just set of tests to check that the Cursors
 /// are not Send. We need to use doc test as it is the
@@ -50,50 +50,6 @@ pub use self::range::{RoRange, RoRevRange, RwRange, RwRevRange};
 /// use heed::RoRevPrefix;
 /// fn is_send<T: Send>() {}
 /// is_send::<RoRevPrefix<Bytes, Bytes>>();
-/// ```
-///
-/// Starting the next section with the Read-write Iterators.
-///
-/// ```rust,compile_fail
-/// use heed::types::*;
-/// use heed::RwIter;
-/// fn is_send<T: Send>() {}
-/// is_send::<RwIter<Bytes, Bytes>>();
-/// ```
-///
-/// ```rust,compile_fail
-/// use heed::types::*;
-/// use heed::RwRevIter;
-/// fn is_send<T: Send>() {}
-/// is_send::<RwRevIter<Bytes, Bytes>>();
-/// ```
-///
-/// ```rust,compile_fail
-/// use heed::types::*;
-/// use heed::RwRange;
-/// fn is_send<T: Send>() {}
-/// is_send::<RwRange<Bytes, Bytes>>();
-/// ```
-///
-/// ```rust,compile_fail
-/// use heed::types::*;
-/// use heed::RwRevRange;
-/// fn is_send<T: Send>() {}
-/// is_send::<RwRevRange<Bytes, Bytes>>();
-/// ```
-///
-/// ```rust,compile_fail
-/// use heed::types::*;
-/// use heed::RwPrefix;
-/// fn is_send<T: Send>() {}
-/// is_send::<RwPrefix<Bytes, Bytes>>();
-/// ```
-///
-/// ```rust,compile_fail
-/// use heed::types::*;
-/// use heed::RwRevPrefix;
-/// fn is_send<T: Send>() {}
-/// is_send::<RwRevPrefix<Bytes, Bytes>>();
 /// ```
 #[doc(hidden)]
 #[allow(unused)]
