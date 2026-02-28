@@ -376,6 +376,44 @@ impl<'p> RwTxn<'p> {
     /// the **same** database.  Since `WRITEMAP` is behind an `unsafe` API,
     /// that responsibility falls on the caller.
     ///
+    /// # Hazards — Read This Before Using
+    ///
+    /// The split is **only safe when `ReadHalf` and `WriteHalf` operate on
+    /// strictly different, named databases**. The following patterns cause
+    /// undefined behaviour (confirmed data corruption in tests):
+    ///
+    /// 1. **Same-database access** — If both halves touch the same database,
+    ///    LMDB's loose-page reuse can corrupt zero-copy references held by
+    ///    `ReadHalf`: a `delete` followed by `put` through `WriteHalf` frees
+    ///    a dirty heap page as "loose", then immediately reuses it for the
+    ///    new entry, overwriting memory still pointed to by the `ReadHalf`
+    ///    reference.
+    ///
+    /// 2. **MAIN_DBI aliasing** — The **unnamed database** (opened with
+    ///    `create_database(&mut wtxn, None)`) **is** LMDB's `MAIN_DBI`.
+    ///    All named-database metadata records are also stored in `MAIN_DBI`,
+    ///    meaning "read unnamed DB + write any named DB" is effectively
+    ///    same-database access. The first write to each named DB triggers
+    ///    `mdb_cursor_touch` which copy-on-writes `MAIN_DBI` pages,
+    ///    corrupting any cursor registered on `MAIN_DBI` by the `ReadHalf`.
+    ///
+    /// 3. **Behavioral skew on same-database iteration** — Even without
+    ///    loose-page reuse, concurrent `put` calls through `WriteHalf` on the
+    ///    same database can cause `ReadHalf` iterators to visit newly-inserted
+    ///    entries (B-tree page splits relocate cursor positions).
+    ///
+    /// **Safe patterns** (named-to-named, distinct databases):
+    /// ```text
+    /// read db_a  +  write db_b   ✓  (db_a ≠ db_b, both named)
+    /// read db_b  +  write db_a   ✓  (same as above)
+    /// ```
+    ///
+    /// **Unsafe patterns**:
+    /// ```text
+    /// read db_a  +  write db_a          ✗  same database
+    /// read unnamed_db  +  write db_x    ✗  unnamed DB is MAIN_DBI
+    /// ```
+    ///
     /// # Example
     ///
     /// ```
@@ -491,6 +529,15 @@ impl std::ops::DerefMut for RwTxn<'_> {
 /// `ReadHalf` is `!Send` because LMDB transactions must stay on the
 /// thread that created them.
 ///
+/// # Warning
+///
+/// Zero-copy references obtained through `ReadHalf` (e.g. `&str`, `&[u8]`)
+/// are **only valid** while `WriteHalf` operates on a **different named
+/// database**. If `WriteHalf` writes to the same database — or to **any**
+/// named database while `ReadHalf` reads the unnamed database — LMDB's
+/// internal loose-page reuse can silently overwrite the memory behind those
+/// references. See [`RwTxn::split`] for the full list of hazards.
+///
 /// ```compile_fail
 /// fn assert_send<T: Send>() {}
 /// assert_send::<heed::ReadHalf<'static>>();
@@ -510,6 +557,14 @@ pub struct ReadHalf<'a> {
 ///
 /// `WriteHalf` is `!Send` because LMDB transactions must stay on the
 /// thread that created them.
+///
+/// # Warning
+///
+/// Writes through `WriteHalf` must only target a database that is
+/// **different** from any database being read via `ReadHalf`. Writing to
+/// the same database, or to any named database while `ReadHalf` reads the
+/// unnamed (MAIN_DBI) database, causes undefined behaviour. See
+/// [`RwTxn::split`] for details.
 ///
 /// ```compile_fail
 /// fn assert_send<T: Send>() {}

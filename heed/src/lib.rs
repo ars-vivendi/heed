@@ -78,6 +78,8 @@ mod iterator;
 mod mdb;
 mod reserved_space;
 mod txn;
+#[cfg(test)]
+mod txn_split_safety_tests;
 
 use std::ffi::CStr;
 use std::{error, fmt, io, mem, result};

@@ -275,3 +275,81 @@ All phases have been implemented and committed on branch `feat/rwtxn-split`:
 | `6125c8c` | 4 | Example, doc tests, compile-fail tests |
 
 **Test results:** 71 tests pass, 0 warnings.
+
+---
+
+## Safety Audit Findings
+
+A post-implementation audit (`heed/src/txn_split_safety_tests.rs`) tested the
+split feature under both the intended cross-database pattern and adversarial
+same-database patterns against live LMDB internals.
+
+### Confirmed Issues
+
+#### 1. Same-database loose-page reuse (UB — data corruption)
+
+**Root cause:** LMDB's `mdb_page_loose()` adds freed dirty pages to a
+per-transaction "loose" list. `mdb_page_alloc()` immediately reuses those pages
+for the next allocation — including while zero-copy references into those pages
+are still live.
+
+**Trigger sequence:**
+1. Write N entries via `WriteHalf` (pages become dirty / heap-allocated).
+2. Read a value via `ReadHalf` — pointer into a dirty heap page.
+3. Delete entries via `WriteHalf` — B-tree merges free dirty pages as loose.
+4. Insert new entries via `WriteHalf` — `mdb_page_alloc` reuses loose pages,
+   overwriting the memory behind the held reference.
+
+**Observed:** Three independent tests (`same_db_dirty_page_reuse_after_merge`,
+`same_db_heavy_delete_reinsert_cycle`,
+`same_db_get_dirty_page_then_overwrite_same_key`) all reproduce this, showing
+values silently changing to unrelated content on every run.
+
+#### 2. MAIN_DBI aliasing (UB — data corruption)
+
+**Root cause:** The **unnamed database** (opened with `create_database(&mut
+wtxn, None)`) is LMDB's `MAIN_DBI` (slot 1). All named-database metadata
+records (name → DBI mapping) are also stored as key-value pairs in `MAIN_DBI`.
+They share the same B-tree.
+
+Writing to any **named** database triggers `mdb_cursor_touch(mc, MAIN_DBI)`
+for the first write in that transaction, which copy-on-writes the B-tree path
+from root to leaf in `MAIN_DBI`. Any cursor the `ReadHalf` has registered on
+`MAIN_DBI` (e.g. from iterating the unnamed DB) is left pointing at stale or
+reused pages.
+
+**Consequence:** "read unnamed DB + write any named DB" is **not** a safe
+cross-database pattern, even though it looks like one. Confirmed by:
+- `main_dbi_aliasing_unnamed_db_plus_named_db` — stored value changed from
+  `"VVV..."` to `"RRR..."`.
+- `main_dbi_aliasing_iter_unnamed_while_writing_named` — iterator produced
+  **invalid UTF-8** after named-DB writes, indicating the MAIN_DBI page data
+  was fully replaced under the cursor.
+
+#### 3. Behavioral skew on same-database iteration (not UB, but incorrect)
+
+Concurrent `put` calls through `WriteHalf` on the same database can cause
+`ReadHalf` iterators to visit entries that were not present when the iterator
+was created. B-tree page splits relocate cursor positions into newly-allocated
+pages and the iterator follows, reading interspersed new entries.
+
+**Observed:** `same_db_iter_with_concurrent_inserts` returned 3624 entries
+instead of the expected 1000 seed entries.
+
+### Safe Patterns (confirmed)
+
+| Pattern | Result |
+|---------|--------|
+| Read named `db_a` + write named `db_b` (`db_a ≠ db_b`) | ✓ Safe |
+| Read dirty pages of `db_a` + write `db_b` | ✓ Safe |
+| Cross-database range copy | ✓ Safe |
+
+The cross-database isolation holds because in non-WRITEMAP mode, COW pages for
+`db_b` are newly `malloc`'d heap allocations that do not overlap with `db_a`'s
+pages. They also do not share B-tree nodes (each named DB has its own root DBI).
+
+### Safe Usage Rule
+
+> **`RwTxn::split()` is only safe when `ReadHalf` and `WriteHalf` operate
+> on distinct, named databases — and neither half touches the unnamed
+> (MAIN_DBI) database while the other half is active.**
